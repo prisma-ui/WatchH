@@ -206,9 +206,10 @@ export async function scrapeWatch(slug: string) {
   const genres: string[] = [];
   $("#info .sgeneros a").each((_: number, el: Element) => { genres.push($(el).text().trim()); });
   const rawHtml = $.html();
-  const playerSrcFromAttr = $("#search_iframe").attr("data-src") || $('meta[itemprop="contentUrl"]').attr("content") || "";
-  const playerSrcFromRegex = !playerSrcFromAttr ? (rawHtml.match(/id=["']search_iframe["'][^>]*data-src=["']([^"']+)["']/)?.[1] || rawHtml.match(/data-src=["']([^"']*jwplayer[^"']*)["']/)?.[1] || "") : "";
-  const playerSrc = playerSrcFromAttr || playerSrcFromRegex;
+  const playerSrcFromAttr = $("#search_iframe").attr("data-src") || "";
+  const playerSrcFromRegex = rawHtml.match(/data-src='(https:\/\/[^']*jwplayer[^']*quality[^']*)'/) ?.[1] || rawHtml.match(/data-src="(https:\/\/[^"]*jwplayer[^"]*quality[^"]*)"/) ?.[1] || "";
+  const playerSrcMeta = $('meta[itemprop="contentUrl"]').attr("content") || "";
+  const playerSrc = playerSrcFromAttr || playerSrcFromRegex || playerSrcMeta;
   const videoUrlMatch = playerSrc.match(/source=([^&]+)/);
   const episodeList: object[] = [];
   $(".episodios li").each((_: number, el: Element) => {
