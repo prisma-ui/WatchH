@@ -210,7 +210,8 @@ export async function scrapeWatch(slug: string) {
   const playerSrcFromRegex = rawHtml.match(/data-src='(https:\/\/[^']*jwplayer[^']*quality[^']*)'/) ?.[1] || rawHtml.match(/data-src="(https:\/\/[^"]*jwplayer[^"]*quality[^"]*)"/) ?.[1] || "";
   const playerSrcMeta = $('meta[itemprop="contentUrl"]').attr("content") || "";
   const playerSrc = playerSrcFromAttr || playerSrcFromRegex || playerSrcMeta;
-  const videoUrlMatch = playerSrc.match(/source=([^&]+)/);
+  const playerSrcClean = playerSrc.replace(/&amp;/g, "&");
+  const videoUrlMatch = playerSrcClean.match(/source=([^&]+)/);
   const episodeList: object[] = [];
   $(".episodios li").each((_: number, el: Element) => {
     const $el = $(el);
@@ -238,9 +239,9 @@ export async function scrapeWatch(slug: string) {
     duration: $('meta[itemprop="duration"]').attr("content") || "",
     thumbnail: $('meta[itemprop="thumbnailUrl"]').attr("content") || "",
     player: {
-      src: playerSrc,
+      src: playerSrcClean,
       videoUrl: videoUrlMatch ? decodeURIComponent(videoUrlMatch[1]) : "",
-      quality: playerSrc.match(/quality=([^&'"]+)/)?.[1] || "",
+      quality: playerSrcClean.match(/quality=([^&'"]+)/)?.[1] || "",
     },
     downloadLink: $("a.download-video[href*='/download/']").attr("href") || "",
     navigation: {
