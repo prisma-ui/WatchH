@@ -14,6 +14,8 @@ Unofficial REST API that scrapes [watchhentai.net](https://watchhentai.net), bui
 | GET | `/api/trending?page=1` | Trending series |
 | GET | `/api/calendar` | Upcoming/past release calendar grouped by month |
 | GET | `/api/search?q=...&page=1` | Search series and episodes |
+| GET | `/api/genres` | List all genres with name, slug, and series count |
+| GET | `/api/genres/[slug]?page=1` | Series listing filtered by genre slug |
 
 Interactive API docs (Swagger UI) are available at `/docs`.
 
@@ -53,5 +55,5 @@ The `start` script binds to Render's `$PORT` automatically.
 ## Notes
 
 - Scraper selectors live in `lib/scraper.ts` and are derived from watchhentai.net's live HTML structure.
-- Responses cache for 5 minutes (`next: { revalidate: 300 }`) to reduce upstream load.
+- Responses are fetched fresh on each request (`cache: "no-store"`) to avoid stale data from the upstream site.
 - This project is for educational purposes; it is not affiliated with watchhentai.net.
