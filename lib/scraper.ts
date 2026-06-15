@@ -51,7 +51,7 @@ export function parsePagination($: cheerio.CheerioAPI) {
 }
 
 export async function scrapeHome() {
-  const { $, html: _html } = await fetchPage(BASE_URL);
+  const { $ } = await fetchPage(BASE_URL);
   const slider: object[] = [];
   $("#slider-movies-tvshows .item").each((_: number, el: Element) => {
     const $el = $(el);
@@ -75,7 +75,7 @@ export async function scrapeHome() {
 
 export async function scrapeVideos(page = 1) {
   const url = page > 1 ? `${BASE_URL}/videos/page/${page}/` : `${BASE_URL}/videos/`;
-  const { $, html: _html } = await fetchPage(url);
+  const { $ } = await fetchPage(url);
   const episodes: object[] = [];
   $(".item.se.episodes").each((_: number, el: Element) => {
     episodes.push(parseEpisodeCard($, el));
@@ -85,7 +85,7 @@ export async function scrapeVideos(page = 1) {
 
 export async function scrapeTrending(page = 1) {
   const url = page > 1 ? `${BASE_URL}/trending/page/${page}/` : `${BASE_URL}/trending/`;
-  const { $, html: _html } = await fetchPage(url);
+  const { $ } = await fetchPage(url);
   const items: object[] = [];
   $(".item.tvshows, .item.se.episodes").each((_: number, el: Element) => {
     const cls = $(el).attr("class") || "";
@@ -96,9 +96,9 @@ export async function scrapeTrending(page = 1) {
 }
 
 export async function scrapeSeries(page = 1, genre?: string, year?: string) {
-  let base = genre ? `${BASE_URL}/genre/${genre}/` : year ? `${BASE_URL}/release/${year}/` : `${BASE_URL}/series/`;
+  const base = genre ? `${BASE_URL}/genre/${genre}/` : year ? `${BASE_URL}/release/${year}/` : `${BASE_URL}/series/`;
   const url = page > 1 ? base.replace(/\/$/, "") + `/page/${page}/` : base;
-  const { $, html: _html } = await fetchPage(url);
+  const { $ } = await fetchPage(url);
   const series: object[] = [];
   $(".item.tvshows").each((_: number, el: Element) => {
     series.push(parseSeriesCard($, el));
@@ -107,7 +107,7 @@ export async function scrapeSeries(page = 1, genre?: string, year?: string) {
 }
 
 export async function scrapeCalendar() {
-  const { $, html: _html } = await fetchPage(`${BASE_URL}/calendar/`);
+  const { $ } = await fetchPage(`${BASE_URL}/calendar/`);
   const calendar: object[] = [];
   let currentMonth = "";
   $(".calendar-page-content > header, .calendar-page-content > div#archive-content, .calendar-page-content > div.items").each(
@@ -135,10 +135,44 @@ export async function scrapeCalendar() {
   return { calendar };
 }
 
+export async function scrapeGenres() {
+  const { $ } = await fetchPage(`${BASE_URL}/series/`);
+  const genres: object[] = [];
+  $(".dt_mainmeta nav.genres ul.genres li.cat-item").each((_: number, el: Element) => {
+    const $el = $(el);
+    const $a = $el.find("a");
+    const href = $a.attr("href") || "";
+    const slug = href.replace(/.*\/genre\//, "").replace(/\/$/, "");
+    genres.push({
+      name: $a.text().trim(),
+      slug,
+      count: parseInt($el.find("i").text().replace(/,/g, "")) || 0,
+      link: href,
+    });
+  });
+  return { genres };
+}
+
+export async function scrapeGenreDetail(slug: string, page = 1) {
+  const base = `${BASE_URL}/genre/${slug}/`;
+  const url = page > 1 ? `${base}page/${page}/` : base;
+  const { $ } = await fetchPage(url);
+  const series: object[] = [];
+  $(".items.full article.item.tvshows").each((_: number, el: Element) => {
+    series.push(parseSeriesCard($, el));
+  });
+  return {
+    name: $("h1.heading-archive").text().trim(),
+    slug,
+    series,
+    pagination: parsePagination($),
+  };
+}
+
 export async function scrapeSearch(q: string, page = 1) {
   const base = `${BASE_URL}/?s=${encodeURIComponent(q)}`;
   const url = page > 1 ? `${BASE_URL}/page/${page}/?s=${encodeURIComponent(q)}` : base;
-  const { $, html: _html } = await fetchPage(url);
+  const { $ } = await fetchPage(url);
   const results: object[] = [];
   $(".result-item article").each((_: number, el: Element) => {
     const $el = $(el);
@@ -154,7 +188,7 @@ export async function scrapeSearch(q: string, page = 1) {
 }
 
 export async function scrapeSeriesDetail(slug: string) {
-  const { $, html: _html } = await fetchPage(`${BASE_URL}/series/${slug}/`);
+  const { $ } = await fetchPage(`${BASE_URL}/series/${slug}/`);
   const genres: string[] = [];
   $(".sgeneros a").each((_: number, el: Element) => { genres.push($(el).text().trim()); });
   const episodes: object[] = [];
@@ -212,8 +246,6 @@ export async function scrapeWatch(slug: string) {
   const playerSrcRaw = playerSrcFromAttr || playerSrcFromRegex || playerSrcMeta;
   const playerSrc = playerSrcRaw.replace(/&amp;/g, "&");
   const qualityRaw = (playerSrcFromAttr || playerSrcFromRegex).replace(/&amp;/g, "&");
-
-  // fallback: fetch dooplayer API to get full src with quality
   const postId = $("#report-submit-button").closest("form").find("input[name='postid']").attr("value") || rawHtml.match(/data-post=['"](\d+)['"]/)?.[1] || "";
   let playerSrcFinal = playerSrc;
   let qualityFinal = qualityRaw.match(/quality=([^&'"]+)/)?.[1] || playerSrc.match(/quality=([^&'"]+)/)?.[1] || "";
