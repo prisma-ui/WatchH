@@ -1,0 +1,11 @@
+import { NextResponse } from "next/server";
+import { scrapeHome } from "@/lib/scraper";
+
+export async function GET() {
+  try {
+    const data = await scrapeHome();
+    return NextResponse.json(data);
+  } catch (e: unknown) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
