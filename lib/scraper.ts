@@ -8,10 +8,11 @@ const HEADERS = {
   Referer: BASE_URL,
 };
 
-export async function fetchPage(url: string): Promise<cheerio.CheerioAPI> {
+export async function fetchPage(url: string): Promise<{ $: cheerio.CheerioAPI; html: string }> {
   const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
-  return cheerio.load(await res.text());
+  const html = await res.text();
+  return { $: cheerio.load(html), html };
 }
 
 export function parseEpisodeCard($: cheerio.CheerioAPI, el: Element) {
@@ -50,7 +51,7 @@ export function parsePagination($: cheerio.CheerioAPI) {
 }
 
 export async function scrapeHome() {
-  const $ = await fetchPage(BASE_URL);
+  const { $, html: _html } = await fetchPage(BASE_URL);
   const slider: object[] = [];
   $("#slider-movies-tvshows .item").each((_: number, el: Element) => {
     const $el = $(el);
@@ -74,7 +75,7 @@ export async function scrapeHome() {
 
 export async function scrapeVideos(page = 1) {
   const url = page > 1 ? `${BASE_URL}/videos/page/${page}/` : `${BASE_URL}/videos/`;
-  const $ = await fetchPage(url);
+  const { $, html: _html } = await fetchPage(url);
   const episodes: object[] = [];
   $(".item.se.episodes").each((_: number, el: Element) => {
     episodes.push(parseEpisodeCard($, el));
@@ -84,7 +85,7 @@ export async function scrapeVideos(page = 1) {
 
 export async function scrapeTrending(page = 1) {
   const url = page > 1 ? `${BASE_URL}/trending/page/${page}/` : `${BASE_URL}/trending/`;
-  const $ = await fetchPage(url);
+  const { $, html: _html } = await fetchPage(url);
   const items: object[] = [];
   $(".item.tvshows, .item.se.episodes").each((_: number, el: Element) => {
     const cls = $(el).attr("class") || "";
@@ -97,7 +98,7 @@ export async function scrapeTrending(page = 1) {
 export async function scrapeSeries(page = 1, genre?: string, year?: string) {
   let base = genre ? `${BASE_URL}/genre/${genre}/` : year ? `${BASE_URL}/release/${year}/` : `${BASE_URL}/series/`;
   const url = page > 1 ? base.replace(/\/$/, "") + `/page/${page}/` : base;
-  const $ = await fetchPage(url);
+  const { $, html: _html } = await fetchPage(url);
   const series: object[] = [];
   $(".item.tvshows").each((_: number, el: Element) => {
     series.push(parseSeriesCard($, el));
@@ -106,7 +107,7 @@ export async function scrapeSeries(page = 1, genre?: string, year?: string) {
 }
 
 export async function scrapeCalendar() {
-  const $ = await fetchPage(`${BASE_URL}/calendar/`);
+  const { $, html: _html } = await fetchPage(`${BASE_URL}/calendar/`);
   const calendar: object[] = [];
   let currentMonth = "";
   $(".calendar-page-content > header, .calendar-page-content > div#archive-content, .calendar-page-content > div.items").each(
@@ -137,7 +138,7 @@ export async function scrapeCalendar() {
 export async function scrapeSearch(q: string, page = 1) {
   const base = `${BASE_URL}/?s=${encodeURIComponent(q)}`;
   const url = page > 1 ? `${BASE_URL}/page/${page}/?s=${encodeURIComponent(q)}` : base;
-  const $ = await fetchPage(url);
+  const { $, html: _html } = await fetchPage(url);
   const results: object[] = [];
   $(".result-item article").each((_: number, el: Element) => {
     const $el = $(el);
@@ -153,7 +154,7 @@ export async function scrapeSearch(q: string, page = 1) {
 }
 
 export async function scrapeSeriesDetail(slug: string) {
-  const $ = await fetchPage(`${BASE_URL}/series/${slug}/`);
+  const { $, html: _html } = await fetchPage(`${BASE_URL}/series/${slug}/`);
   const genres: string[] = [];
   $(".sgeneros a").each((_: number, el: Element) => { genres.push($(el).text().trim()); });
   const episodes: object[] = [];
@@ -202,10 +203,9 @@ export async function scrapeSeriesDetail(slug: string) {
 }
 
 export async function scrapeWatch(slug: string) {
-  const $ = await fetchPage(`${BASE_URL}/videos/${slug}/`);
+  const { $, html: rawHtml } = await fetchPage(`${BASE_URL}/videos/${slug}/`);
   const genres: string[] = [];
   $("#info .sgeneros a").each((_: number, el: Element) => { genres.push($(el).text().trim()); });
-  const rawHtml = $.html();
   const playerSrcFromAttr = $("#search_iframe").attr("data-src") || "";
   const playerSrcFromRegex = rawHtml.match(/id=["']search_iframe["'][^>]*data-src=["']([^"']+)["']/)?.[1] || rawHtml.match(/data-src=["']([^"']*jwplayer[^"']*)["']/)?.[1] || "";
   const playerSrcMeta = $('meta[itemprop="contentUrl"]').attr("content") || "";
@@ -243,7 +243,6 @@ export async function scrapeWatch(slug: string) {
       src: playerSrc,
       videoUrl: videoUrlMatch ? decodeURIComponent(videoUrlMatch[1]) : "",
       quality: qualityRaw.match(/quality=([^&'"]+)/)?.[1] || playerSrc.match(/quality=([^&'"]+)/)?.[1] || "",
-      _debug: { fromAttr: !!playerSrcFromAttr, fromRegex: !!playerSrcFromRegex, fromMeta: !playerSrcFromAttr && !playerSrcFromRegex },
     },
     downloadLink: $("a.download-video[href*='/download/']").attr("href") || "",
     navigation: {
