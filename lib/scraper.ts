@@ -207,11 +207,12 @@ export async function scrapeWatch(slug: string) {
   $("#info .sgeneros a").each((_: number, el: Element) => { genres.push($(el).text().trim()); });
   const rawHtml = $.html();
   const playerSrcFromAttr = $("#search_iframe").attr("data-src") || "";
-  const playerSrcFromRegex = rawHtml.match(/data-src='(https:\/\/[^']*jwplayer[^']*quality[^']*)'/) ?.[1] || rawHtml.match(/data-src="(https:\/\/[^"]*jwplayer[^"]*quality[^"]*)"/) ?.[1] || "";
+  const playerSrcFromRegex = rawHtml.match(/id=["']search_iframe["'][^>]*data-src=["']([^"']+)["']/)?.[1] || rawHtml.match(/data-src=["']([^"']*jwplayer[^"']*)["']/)?.[1] || "";
   const playerSrcMeta = $('meta[itemprop="contentUrl"]').attr("content") || "";
-  const playerSrc = playerSrcFromAttr || playerSrcFromRegex || playerSrcMeta;
-  const playerSrcClean = playerSrc.replace(/&amp;/g, "&");
-  const videoUrlMatch = playerSrcClean.match(/source=([^&]+)/);
+  const playerSrcRaw = playerSrcFromAttr || playerSrcFromRegex || playerSrcMeta;
+  const playerSrc = playerSrcRaw.replace(/&amp;/g, "&");
+  const qualityRaw = playerSrcFromAttr.replace(/&amp;/g, "&") || playerSrcFromRegex.replace(/&amp;/g, "&");
+  const videoUrlMatch = playerSrc.match(/source=([^&]+)/);
   const episodeList: object[] = [];
   $(".episodios li").each((_: number, el: Element) => {
     const $el = $(el);
@@ -239,9 +240,10 @@ export async function scrapeWatch(slug: string) {
     duration: $('meta[itemprop="duration"]').attr("content") || "",
     thumbnail: $('meta[itemprop="thumbnailUrl"]').attr("content") || "",
     player: {
-      src: playerSrcClean,
+      src: playerSrc,
       videoUrl: videoUrlMatch ? decodeURIComponent(videoUrlMatch[1]) : "",
-      quality: playerSrcClean.match(/quality=([^&'"]+)/)?.[1] || "",
+      quality: qualityRaw.match(/quality=([^&'"]+)/)?.[1] || playerSrc.match(/quality=([^&'"]+)/)?.[1] || "",
+      _debug: { fromAttr: !!playerSrcFromAttr, fromRegex: !!playerSrcFromRegex, fromMeta: !playerSrcFromAttr && !playerSrcFromRegex },
     },
     downloadLink: $("a.download-video[href*='/download/']").attr("href") || "",
     navigation: {
