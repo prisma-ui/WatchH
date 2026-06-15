@@ -294,6 +294,7 @@ export const swaggerSpec = {
       },
     },
   },
+  components: {
     parameters: {
       page: {
         name: "page",
