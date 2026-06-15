@@ -225,7 +225,10 @@ export async function scrapeWatch(slug: string) {
     const src = $(el).attr("href")?.trim();
     if (src) gallery.push(src);
   });
-  const navLinks = $(".pag_episodes .item a");
+  const navItems = $(".pag_episodes .item");
+  const prevLink = navItems.eq(0).find("a").not(".nonex").attr("href") || null;
+  const nextLink = navItems.eq(2).find("a").not(".nonex").attr("href") || null;
+  const seriesLink = navItems.eq(1).find("a").attr("href") || "";
   return {
     title: $("#info h1").text().trim(),
     genres,
@@ -240,9 +243,9 @@ export async function scrapeWatch(slug: string) {
     },
     downloadLink: $("a.download-video[href*='/download/']").attr("href") || "",
     navigation: {
-      prev: navLinks.filter("[href*='/videos/']").not(".nonex").first().attr("href") || null,
-      next: navLinks.filter("[href*='/videos/']").not(".nonex").last().attr("href") || null,
-      series: navLinks.filter("[href*='/series/']").attr("href") || "",
+      prev: prevLink,
+      next: nextLink,
+      series: seriesLink,
     },
     synopsis: $(".synopsis p").text().replace(/^\s*Synopsis\s*:\s*/i, "").replace(/\s+/g, " ").trim(),
     episodeList,
