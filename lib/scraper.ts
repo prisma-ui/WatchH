@@ -211,8 +211,23 @@ export async function scrapeWatch(slug: string) {
   const playerSrcMeta = $('meta[itemprop="contentUrl"]').attr("content") || "";
   const playerSrcRaw = playerSrcFromAttr || playerSrcFromRegex || playerSrcMeta;
   const playerSrc = playerSrcRaw.replace(/&amp;/g, "&");
-  const qualityRaw = playerSrcFromAttr.replace(/&amp;/g, "&") || playerSrcFromRegex.replace(/&amp;/g, "&");
-  const videoUrlMatch = playerSrc.match(/source=([^&]+)/);
+  const qualityRaw = (playerSrcFromAttr || playerSrcFromRegex).replace(/&amp;/g, "&");
+
+  // fallback: fetch dooplayer API to get full src with quality
+  const postId = $("#report-submit-button").closest("form").find("input[name='postid']").attr("value") || rawHtml.match(/data-post=['"](\d+)['"]/)?.[1] || "";
+  let playerSrcFinal = playerSrc;
+  let qualityFinal = qualityRaw.match(/quality=([^&'"]+)/)?.[1] || playerSrc.match(/quality=([^&'"]+)/)?.[1] || "";
+  if (!qualityFinal && postId) {
+    try {
+      const apiRes = await fetch(`${BASE_URL}/wp-json/dooplayer/v2/${postId}/1`, { headers: HEADERS, cache: "no-store" });
+      if (apiRes.ok) {
+        const apiData = await apiRes.json() as { embed_url?: string; quality?: string };
+        if (apiData.embed_url) playerSrcFinal = apiData.embed_url;
+        if (apiData.quality) qualityFinal = apiData.quality;
+        if (!qualityFinal) qualityFinal = playerSrcFinal.match(/quality=([^&'"]+)/)?.[1] || "";
+      }
+    } catch { /* ignore */ }
+  }
   const episodeList: object[] = [];
   $(".episodios li").each((_: number, el: Element) => {
     const $el = $(el);
@@ -240,9 +255,9 @@ export async function scrapeWatch(slug: string) {
     duration: $('meta[itemprop="duration"]').attr("content") || "",
     thumbnail: $('meta[itemprop="thumbnailUrl"]').attr("content") || "",
     player: {
-      src: playerSrc,
-      videoUrl: videoUrlMatch ? decodeURIComponent(videoUrlMatch[1]) : "",
-      quality: qualityRaw.match(/quality=([^&'"]+)/)?.[1] || playerSrc.match(/quality=([^&'"]+)/)?.[1] || "",
+      src: playerSrcFinal,
+      videoUrl: playerSrcFinal.match(/source=([^&]+)/) ? decodeURIComponent(playerSrcFinal.match(/source=([^&]+)/)![1]) : "",
+      quality: qualityFinal,
     },
     downloadLink: $("a.download-video[href*='/download/']").attr("href") || "",
     navigation: {
