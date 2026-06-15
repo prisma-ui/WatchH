@@ -14,6 +14,7 @@ export const swaggerSpec = {
     { name: "Calendar", description: "Release calendar" },
     { name: "Search", description: "Search" },
     { name: "Watch", description: "Watch/video page" },
+    { name: "Genres", description: "Genre listing" },
   ],
   paths: {
     "/home": {
@@ -235,8 +236,64 @@ export const swaggerSpec = {
         },
       },
     },
+    "/genres": {
+      get: {
+        tags: ["Genres"],
+        summary: "Get all genres with name, slug, and series count",
+        responses: {
+          200: {
+            description: "Success",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    genres: { type: "array", items: { $ref: "#/components/schemas/GenreItem" } },
+                  },
+                },
+              },
+            },
+          },
+          500: { $ref: "#/components/responses/Error" },
+        },
+      },
+    },
+    "/genres/{slug}": {
+      get: {
+        tags: ["Genres"],
+        summary: "Get series filtered by genre slug",
+        parameters: [
+          {
+            name: "slug",
+            in: "path",
+            required: true,
+            description: "Genre slug (e.g. uncensored, harem, school-girls)",
+            schema: { type: "string" },
+          },
+          { $ref: "#/components/parameters/page" },
+        ],
+        responses: {
+          200: {
+            description: "Success",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    slug: { type: "string" },
+                    series: { type: "array", items: { $ref: "#/components/schemas/SeriesCard" } },
+                    pagination: { $ref: "#/components/schemas/Pagination" },
+                  },
+                },
+              },
+            },
+          },
+          500: { $ref: "#/components/responses/Error" },
+        },
+      },
+    },
   },
-  components: {
     parameters: {
       page: {
         name: "page",
@@ -261,6 +318,15 @@ export const swaggerSpec = {
       },
     },
     schemas: {
+      GenreItem: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          slug: { type: "string" },
+          count: { type: "integer" },
+          link: { type: "string" },
+        },
+      },
       Pagination: {
         type: "object",
         properties: {
