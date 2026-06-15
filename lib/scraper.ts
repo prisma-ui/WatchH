@@ -9,7 +9,7 @@ const HEADERS = {
 };
 
 export async function fetchPage(url: string): Promise<cheerio.CheerioAPI> {
-  const res = await fetch(url, { headers: HEADERS, next: { revalidate: 300 } });
+  const res = await fetch(url, { headers: HEADERS, cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
   return cheerio.load(await res.text());
 }
@@ -139,8 +139,16 @@ export async function scrapeSearch(q: string, page = 1) {
   const url = page > 1 ? `${BASE_URL}/page/${page}/?s=${encodeURIComponent(q)}` : base;
   const $ = await fetchPage(url);
   const results: object[] = [];
-  $(".item.tvshows").each((_: number, el: Element) => { results.push(parseSeriesCard($, el)); });
-  $(".item.se.episodes").each((_: number, el: Element) => { results.push(parseEpisodeCard($, el)); });
+  $(".result-item article").each((_: number, el: Element) => {
+    const $el = $(el);
+    results.push({
+      title: $el.find(".details .title a").text().trim(),
+      link: $el.find(".details .title a").attr("href") || "",
+      thumbnail: $el.find(".image img").attr("data-src") || $el.find(".image img").attr("src") || "",
+      year: $el.find(".meta .year").text().trim(),
+      synopsis: $el.find(".contenido p").text().trim(),
+    });
+  });
   return { query: q, results, pagination: parsePagination($) };
 }
 
@@ -197,7 +205,10 @@ export async function scrapeWatch(slug: string) {
   const $ = await fetchPage(`${BASE_URL}/videos/${slug}/`);
   const genres: string[] = [];
   $("#info .sgeneros a").each((_: number, el: Element) => { genres.push($(el).text().trim()); });
-  const playerSrc = $("#search_iframe").attr("data-src") || "";
+  const rawHtml = $.html();
+  const playerSrcFromAttr = $("#search_iframe").attr("data-src") || $('meta[itemprop="contentUrl"]').attr("content") || "";
+  const playerSrcFromRegex = !playerSrcFromAttr ? (rawHtml.match(/id=["']search_iframe["'][^>]*data-src=["']([^"']+)["']/)?.[1] || rawHtml.match(/data-src=["']([^"']*jwplayer[^"']*)["']/)?.[1] || "") : "";
+  const playerSrc = playerSrcFromAttr || playerSrcFromRegex;
   const videoUrlMatch = playerSrc.match(/source=([^&]+)/);
   const episodeList: object[] = [];
   $(".episodios li").each((_: number, el: Element) => {
@@ -229,8 +240,8 @@ export async function scrapeWatch(slug: string) {
     },
     downloadLink: $("a.download-video[href*='/download/']").attr("href") || "",
     navigation: {
-      prev: navLinks.filter("[href*='/videos/']").first().attr("href") || null,
-      next: navLinks.filter("[href*='/videos/']").last().attr("href") || null,
+      prev: navLinks.filter("[href*='/videos/']").not(".nonex").first().attr("href") || null,
+      next: navLinks.filter("[href*='/videos/']").not(".nonex").last().attr("href") || null,
       series: navLinks.filter("[href*='/series/']").attr("href") || "",
     },
     synopsis: $(".synopsis p").text().replace(/^\s*Synopsis\s*:\s*/i, "").replace(/\s+/g, " ").trim(),
